@@ -3,7 +3,7 @@ from collections import Counter
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 def plot_all_results(df, y_true=None, y_pred=None):
-    # --- الجزء الأول: Histogrammes (الكلمات - Option 3) ---
+    #  Option 3  Histogrammes 
     available_labels = df['label'].unique()
     
     fig, axes = plt.subplots(1, len(available_labels), figsize=(15, 6))
@@ -22,12 +22,10 @@ def plot_all_results(df, y_true=None, y_pred=None):
     plt.tight_layout()
     plt.show()
 
-    # --- الجزء الثاني: Confusion Matrix (التعلم الآلي - Option 2) ---
-    # نزيدو هاد الجزء باش نحققوا شرط الـ Machine Learning
+    # Option 2 Machine Learning
     if y_true is not None and y_pred is not None:
         fig, ax = plt.subplots(figsize=(8, 6))
         cm = confusion_matrix(y_true, y_pred)
-        # هنا نعرضو المصفوفة اللي توري الصح والخطأ في التوقعات
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Neg (0)', 'Pos (2)'])
         disp.plot(cmap=plt.cm.Blues, ax=ax)
         ax.set_title("Matrice de Confusion (Évaluation Machine Learning)")
