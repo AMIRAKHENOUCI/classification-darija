@@ -1,52 +1,71 @@
 import pandas as pd
+import numpy as np
 from src.preprocessing import clean_text
-from src.features import fit_transform_tfidf , get_vocabulary_info
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
 from src.dziribert import encode_texts
-from sklearn.metrics import accuracy_score
-from src.evaluation import plot_all_results
-df = pd.read_excel("data/data1500.xlsx")
+from src.model import train_and_evaluate
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+import seaborn as sns
+from collections import Counter
 
-print("Nettoyage des données...")
+# a. Chargement des données
+print("a. Chargement des données...")
+df = pd.read_csv("./data/sentiment_comments.csv")
+
+# مهم جداً: الأستاذ طلب إيجابي وسلبي فقط
+# نحذف الصنف 1 (المحايد) ونبقي 0 (سلبي) و 2 (إيجابي)
+df = df[df['label'] != 1]
+
+# نأخذ عينة محترمة (مثلاً 3000 سطر) لضمان السرعة والدقة
+df = df.sample(n=min(8000, len(df)), random_state=42)
+
+# b. Nettoyage (تأكدي أن ملف preprocessing فيه Stemming كما طلب الأستاذ)
+print("b. Nettoyage des données...")
 df["clean_text"] = df["text"].apply(clean_text)
 
-print("\n Expérience 1 : TF-IDF + Logistic Regression ")
-X_tfidf, vectorizer = fit_transform_tfidf(df["clean_text"])
+# c. Modélisation (DziriBERT)
+print("c. Encodage avec DziriBERT...")
+X_dziri = encode_texts(df["clean_text"].tolist())
 y = df["label"]
 
-X_train, X_test, y_train, y_test = train_test_split(X_tfidf, y, test_size=0.2, random_state=42)
+# d. Partitionnement (80% Train, 20% Test)
+print("d. Partitionnement 80/20...")
+X_train, X_test, y_train, y_test = train_test_split(X_dziri, y, test_size=0.2, random_state=42)
 
-model_tfidf = LogisticRegression(max_iter=1000)
-model_tfidf.fit(X_train, y_train)
-y_pred_tfidf = model_tfidf.predict(X_test)
-
-print("\nRésultats TF-IDF :")
-print(classification_report(y_test, y_pred_tfidf))
-
+# e. Test et évaluation (Option Machine Learning)
+model, report, accuracy = train_and_evaluate(X_train, X_test, y_train, y_test)
 
 print("\n" + "="*40)
-print(" Expérience 2 : DziriBERT + Logistic Regression ")
+print(f"RÉSULTAT FINAL ACCURACY: {accuracy:.4f}")
+print("="*40)
+print(report)
 
+# --- بداية المرحلة (e) : التحليل بالصور ---
+print("\n--- e. Analyse Exploratoire par Visualisation ---")
 
-X_text = df["clean_text"].tolist()
-print("Encoding with DziriBERT (cela peut prendre un moment)...")
-X_dziri = encode_texts(X_text)
+# 1. حساب حجم القاموس (Vocabulaire)
+all_words = " ".join(df['clean_text']).split()
+vocab_size = len(set(all_words))
+print(f"Taille du vocabulaire total: {vocab_size} mots")
 
-X_train_d, X_test_d, y_train_d, y_test_d = train_test_split(X_dziri, y, test_size=0.2, random_state=42)
+# 2. رسم الكلمات الأكثر تكراراً في التعليقات الإيجابية والسلبية
+plt.figure(figsize=(15, 6))
 
-model_dziri = LogisticRegression(max_iter=1000)
-model_dziri.fit(X_train_d, y_train_d)
-y_pred_dziri = model_dziri.predict(X_test_d)
+# الكلمات الإيجابية (Label 2)
+plt.subplot(1, 2, 1)
+pos_words = " ".join(df[df['label'] == 2]['clean_text']).split()
+most_common_pos = Counter(pos_words).most_common(15)
+words_p, counts_p = zip(*most_common_pos)
+sns.barplot(x=list(counts_p), y=list(words_p), palette='Greens_r')
+plt.title("Mots les plus fréquents - Positif")
 
-print("\nRésultats DziriBERT :")
-print(classification_report(y_test_d, y_pred_dziri))
+# الكلمات السلبية (Label 0)
+plt.subplot(1, 2, 2)
+neg_words = " ".join(df[df['label'] == 0]['clean_text']).split()
+most_common_neg = Counter(neg_words).most_common(15)
+words_n, counts_n = zip(*most_common_neg)
+sns.barplot(x=list(counts_n), y=list(words_n), palette='Reds_r')
+plt.title("Mots les plus fréquents - Négatif")
 
-print("\n COMPARAISON FINALE ")
-print(f"Accuracy TF-IDF   : 0.78")
-
-print(f"Accuracy DziriBERT: {accuracy_score(y_test_d, y_pred_dziri):.2f}")
-
-print(f"Taille du vocabulaire: {get_vocabulary_info(df['clean_text'])}")
-plot_all_results(df, y_true=y_test_d, y_pred=y_pred_dziri)
+plt.tight_layout()
+plt.show() # هادي راح تفتحلك نافذة فيها الرسم البياني
